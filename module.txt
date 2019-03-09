@@ -1,0 +1,143 @@
+Public Const iTickerColumnIn As Integer = 1
+Public Const iOpenColumnIn As Integer = 3
+Public Const iCloseColumnIn As Integer = 6
+Public Const dVolumeColumnIn As Integer = 7
+
+Public Const iTickerColumnOut As Integer = 9
+Public Const iChangeColumnOut As Integer = 10
+Public Const iPercentColumnOut As Integer = 11
+Public Const dVolumeColumnOut As Integer = 12
+
+Public wb As Workbook
+Public ws As Worksheet
+
+Sub RunSingleWorksheet()
+  Set wb = ThisWorkbook
+  Set ws = wb.Sheets("2015")
+  Hard
+End Sub
+
+Sub RunAllWorksheets()
+  Set wb = ThisWorkbook
+  For i = 1 To wb.Worksheets.Count
+    Set ws = wb.Sheets(wb.Worksheets(i).Name)
+    Hard
+  Next i
+End Sub
+
+Sub Hard()
+  '32-bit version so need to be careful with integers'
+  Dim sTicker As String
+  Dim dOpen As Double
+  Dim dClose As Double
+  Dim dVolume As Double 'Overflow if Long'
+  Dim iOutputRow As Long
+  Dim iRowIterator As Long 'Overflow if Integer'
+  
+  Dim dPercent As Double
+  Dim sMaxIncrease As String
+  Dim sMaxDecrease As String
+  Dim sMaxVolume As String
+  Dim dMaxIncrease As Double
+  Dim dMaxDecrease As Double
+  Dim dMaxVolume As Double
+  
+  sTicker = ws.Cells(2, iTickerColumnIn).Value
+  dOpen = ws.Cells(2, iOpenColumnIn).Value
+  dClose = ws.Cells(2, iCloseColumnIn).Value
+  dVolume = ws.Cells(2, dVolumeColumnIn).Value
+  iOutputRow = 2
+  
+  dMaxIncrease = 0
+  dMaxDecrease = 0
+  dMaxVolume = 0
+  
+  ws.Cells(1, iTickerColumnOut).Value = "Ticker"
+  ws.Cells(1, iChangeColumnOut).Value = "Yearly Change"
+  ws.Cells(1, iPercentColumnOut).Value = "Percent Change"
+  ws.Cells(1, dVolumeColumnOut).Value = "Total Stock Volume"
+  iRowIterator = 3
+  Do While (Not IsEmpty(ws.Cells(iRowIterator, iTickerColumnIn)))
+    If sTicker = ws.Cells(iRowIterator, iTickerColumnIn).Value Then
+      ' Find first non-zero price '
+      If Not dOpen > 0 Then dOpen = ws.Cells(iRowIterator, iOpenColumnIn).Value
+      dClose = ws.Cells(iRowIterator, iCloseColumnIn).Value
+      dVolume = dVolume + ws.Cells(iRowIterator, dVolumeColumnIn).Value
+    Else
+      ws.Cells(iOutputRow, iTickerColumnOut).Value = sTicker
+      ws.Cells(iOutputRow, iChangeColumnOut).Value = dClose - dOpen
+      If (dClose - dOpen) > 0 Then
+        ws.Cells(iOutputRow, iChangeColumnOut).Interior.ColorIndex = 4
+      ElseIf (dClose - dOpen) < 0 Then
+        ws.Cells(iOutputRow, iChangeColumnOut).Interior.ColorIndex = 3
+      End If
+      If dOpen > 0 Then
+        dPercent = (dClose - dOpen) / dOpen
+        If dPercent > dMaxIncrease Then
+          sMaxIncrease = sTicker
+          dMaxIncrease = dPercent
+        ElseIf dPercent < dMaxDecrease Then
+          sMaxDecrease = sTicker
+          dMaxDecrease = dPercent
+        End If
+        ws.Cells(iOutputRow, iPercentColumnOut).Value = dPercent
+        ws.Cells(iOutputRow, iPercentColumnOut).NumberFormat = "0.00%"
+      Else
+        ' This should not happen unless price data is zeroed out for the whole year '
+        ws.Cells(iOutputRow, iPercentColumnOut).Value = "N/A"
+      End If
+      If dVolume > dMaxVolume Then
+        sMaxVolume = sTicker
+        dMaxVolume = dVolume
+      End If
+      ws.Cells(iOutputRow, dVolumeColumnOut).Value = dVolume
+      sTicker = ws.Cells(iRowIterator, iTickerColumnIn).Value
+      dOpen = ws.Cells(iRowIterator, iOpenColumnIn).Value
+      dClose = ws.Cells(iRowIterator, iCloseColumnIn).Value
+      dVolume = ws.Cells(iRowIterator, dVolumeColumnIn).Value
+      iOutputRow = iOutputRow + 1
+    End If
+    iRowIterator = iRowIterator + 1
+  Loop
+  ws.Cells(iOutputRow, iTickerColumnOut).Value = sTicker
+  ws.Cells(iOutputRow, iChangeColumnOut).Value = dClose - dOpen
+  If (dClose - dOpen) > 0 Then
+    ws.Cells(iOutputRow, iChangeColumnOut).Interior.ColorIndex = 4
+  ElseIf (dClose - dOpen) < 0 Then
+    ws.Cells(iOutputRow, iChangeColumnOut).Interior.ColorIndex = 3
+  End If
+  If dOpen > 0 Then
+    dPercent = (dClose - dOpen) / dOpen
+    If dPercent > dMaxIncrease Then
+      sMaxIncrease = sTicker
+      dMaxIncrease = dPercent
+    ElseIf dPercent < dMaxDecrease Then
+      sMaxDecrease = sTicker
+      dMaxDecrease = dPercent
+    End If
+    ws.Cells(iOutputRow, iPercentColumnOut).Value = dPercent
+    ws.Cells(iOutputRow, iPercentColumnOut).NumberFormat = "0.00%"
+  Else
+    ' This should not happen unless price data is zeroed out for the whole year '
+    ws.Cells(iOutputRow, iPercentColumnOut).Value = "N/A"
+  End If
+  If dVolume > dMaxVolume Then
+    sMaxVolume = sTicker
+    dMaxVolume = dVolume
+  End If
+  ws.Cells(iOutputRow, dVolumeColumnOut).Value = dVolume
+  
+  ws.Cells(1, 16).Value = "Ticker"
+  ws.Cells(1, 17).Value = "Value"
+  ws.Cells(2, 15).Value = "Greatest % Increase"
+  ws.Cells(2, 16).Value = sMaxIncrease
+  ws.Cells(2, 17).Value = dMaxIncrease
+  ws.Cells(2, 17).NumberFormat = "0.00%"
+  ws.Cells(3, 15).Value = "Greatest % Decrease"
+  ws.Cells(3, 16).Value = sMaxDecrease
+  ws.Cells(3, 17).Value = dMaxDecrease
+  ws.Cells(3, 17).NumberFormat = "0.00%"
+  ws.Cells(4, 15).Value = "Greatest Total Volume"
+  ws.Cells(4, 16).Value = sMaxVolume
+  ws.Cells(4, 17).Value = dMaxVolume
+End Sub
